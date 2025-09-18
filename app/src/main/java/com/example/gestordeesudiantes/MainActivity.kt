@@ -5,7 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -35,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,99 +58,115 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Manages the visibility of the splash screen.
+ */
 @Composable
 fun SplashScreenWithAnimation() {
     var showSplash by remember { mutableStateOf(true) }
 
     if (showSplash) {
-        AnimatedSplashScreen {
-            showSplash = false
-        }
+        AnimatedSplashScreen(onSplashEnd = { showSplash = false })
     } else {
         EstudiantesScreen()
     }
 }
 
+/**
+ * Creates an animated splash screen with a clean and modern design.
+ *
+ * This version uses a dark background with a bright accent color.
+ * The animation is a "reveal" effect, where the logo and text appear
+ * in a staggered fashion with a scale and fade-in animation.
+ */
 @Composable
 fun AnimatedSplashScreen(onSplashEnd: () -> Unit) {
-    val scale = remember { Animatable(0f) }
-    val alpha = remember { Animatable(0f) }
+    // Animated states for the UI elements.
+    val logoScale = remember { Animatable(0.5f) }
+    val logoAlpha = remember { Animatable(0f) }
+    val textAlpha = remember { Animatable(0f) }
     var showButton by remember { mutableStateOf(false) }
 
+    // The background color for a more elegant and modern design.
+    val backgroundColor = Color(0xFF2C2F4E)
+    val accentColor = Color(0xFF00C8FF)
+
     LaunchedEffect(Unit) {
-        // Animación de onda expansiva y fade in
-        scale.animateTo(
-            targetValue = 1.2f,
-            animationSpec = tween(
-                durationMillis = 1500
-            )
+        // Phase 1: Logo animation (scale and fade-in).
+        logoScale.animateTo(
+            targetValue = 1.0f,
+            animationSpec = tween(durationMillis = 1000, easing = LinearOutSlowInEasing)
         )
-        alpha.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = 1500
-            )
+        logoAlpha.animateTo(
+            targetValue = 1.0f,
+            animationSpec = tween(durationMillis = 1000, easing = LinearOutSlowInEasing)
         )
 
-        // Pausa en la pantalla
-        delay(1500)
+        // Phase 2: Staggered fade-in for the text.
+        delay(300)
+        textAlpha.animateTo(
+            targetValue = 1.0f,
+            animationSpec = tween(durationMillis = 800)
+        )
+
+        // Phase 3: Delay and then show the button.
+        delay(500)
         showButton = true
-    }
-
-    // Animación de degradado de fondo
-    val backgroundBrush = remember {
-        Brush.linearGradient(
-            colors = listOf(Color(0xFF5A6FE7), Color(0xFF5ED5B7)),
-            start = androidx.compose.ui.geometry.Offset(0f, Float.POSITIVE_INFINITY),
-            end = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, 0f),
-        )
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundBrush),
+            .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .scale(scale.value)
-                .alpha(alpha.value)
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Icono de la app - Icono temporal de una escuela
+            // App logo
             Image(
                 painter = painterResource(id = android.R.drawable.ic_menu_agenda),
                 contentDescription = "App Logo",
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(150.dp)
+                    .scale(logoScale.value)
+                    .alpha(logoAlpha.value)
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            // Título de la app
-            Text(
-                text = "Gestión de Estudiantes",
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
-            // Subtítulo
-            Text(
-                text = "Sistema integral de administración académica",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 14.sp
-            )
+            Spacer(modifier = Modifier.height(24.dp))
+            // Title and subtitle with staggered animation.
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.alpha(textAlpha.value)
+            ) {
+                Text(
+                    text = "Gestión de Estudiantes",
+                    color = Color.White,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Sistema integral de administración académica",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 16.sp
+                )
+            }
         }
 
+        // Animated visibility for the button.
         AnimatedVisibility(
             visible = showButton,
             modifier = Modifier.align(Alignment.BottomCenter),
-            enter = fadeIn(animationSpec = tween(1000, easing = LinearEasing)) + slideInVertically(initialOffsetY = { it })
+            enter = fadeIn(animationSpec = tween(1000, easing = LinearOutSlowInEasing)) +
+                    slideInVertically(initialOffsetY = { it / 2 })
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom
             ) {
-                Button(onClick = onSplashEnd) {
+                Button(
+                    onClick = onSplashEnd,
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                ) {
                     Text("Ingresar al Sistema")
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
@@ -164,6 +180,9 @@ fun AnimatedSplashScreen(onSplashEnd: () -> Unit) {
     }
 }
 
+/**
+ * Preview for the animated splash screen.
+ */
 @Preview(showBackground = true)
 @Composable
 fun AnimatedSplashPreview() {
@@ -174,7 +193,9 @@ fun AnimatedSplashPreview() {
     }
 }
 
-// Composable de ejemplo para la pantalla principal
+/**
+ * Placeholder for the main screen content.
+ */
 @Composable
 fun EstudiantesScreen() {
     Box(
@@ -183,6 +204,6 @@ fun EstudiantesScreen() {
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        // Contenido de la pantalla principal
+        // Main screen content goes here.
     }
 }

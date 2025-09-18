@@ -18,153 +18,162 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EstudiantesScreen(vm: EstudiantesViewModel = viewModel()) {
     val state by vm.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Maneja la visualización del Snackbar para los mensajes de éxito
+    LaunchedEffect(key1 = state.info) {
+        state.info?.let {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = it,
+                    duration = SnackbarDuration.Short
+                )
+                vm.limpiarSeleccion() // Limpia la seleccion despues de una accion exitosa
+            }
+        }
+    }
+
+    // Maneja la visualización del Snackbar para los mensajes de error
+    LaunchedEffect(key1 = state.error) {
+        state.error?.let {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = it,
+                    actionLabel = "OK"
+                )
+                vm.clearError() // Llama a la nueva funcion del ViewModel para limpiar el error
+            }
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Gestión de Estudiantes", style = MaterialTheme.typography.titleLarge) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        }
-    ) { padding ->
-        Column(
-            Modifier
-                .padding(padding)
-                .padding(16.dp)
-                .fillMaxSize()
-        ) {
-            // Formulario
-            Text(
-                text = if (state.seleccionadoId == null) "Nuevo estudiante" else "Editar ID ${state.seleccionadoId}",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
+                ),
+                actions = {
+                    // Botón para eliminar todos (NUEVO) - Usando Icons.Default.Delete
+                    IconButton(
+                        onClick = { vm.setShowDeleteAllDialog(true) },
+                        enabled = !state.loading && state.lista.isNotEmpty()
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Eliminar todos",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
 
-            Spacer(Modifier.height(16.dp))
+                    IconButton(onClick = { vm.refresh() }, enabled = !state.loading) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refrescar")
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            BottomAppBar(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ) {
+                if (state.seleccionadoId == null) {
+                    FilledTonalButton(
+                        onClick = { vm.agregar() },
+                        enabled = !state.loading,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(10.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Agregar", modifier = Modifier.size(ButtonDefaults.IconSize))
+                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                        Text(text = "Agregar Estudiante")
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilledTonalButton(
+                            onClick = { vm.actualizar() },
+                            enabled = !state.loading,
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(10.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = "Actualizar", modifier = Modifier.size(ButtonDefaults.IconSize))
+                            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                            Text(text = "Actualizar")
+                        }
+                        FilledTonalButton(
+                            onClick = { vm.limpiarSeleccion() },
+                            enabled = !state.loading,
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(10.dp)
+                        ) {
+                            Icon(Icons.Default.Clear, contentDescription = "Limpiar", modifier = Modifier.size(ButtonDefaults.IconSize))
+                            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                            Text(text = "Limpiar")
+                        }
+                    }
+                }
+            }
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Campos de texto para nombre y edad
             OutlinedTextField(
                 value = state.nombre,
                 onValueChange = vm::setNombre,
                 label = { Text("Nombre") },
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Icono de persona") },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Nombre") },
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = state.edad,
                 onValueChange = vm::setEdad,
                 label = { Text("Edad") },
-                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Edad") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = "Icono de edad") },
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = vm::agregar,
-                    enabled = !state.loading,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Agregar")
-                    Spacer(Modifier.width(4.dp))
-                    Text("Agregar")
-                }
-                Button(
-                    onClick = vm::actualizar,
-                    enabled = state.seleccionadoId != null && !state.loading,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Actualizar")
-                    Spacer(Modifier.width(4.dp))
-                    Text("Actualizar")
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = vm::limpiarSeleccion,
-                    enabled = !state.loading,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Clear, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Limpiar")
-                }
-                OutlinedButton(
-                    onClick = vm::refresh,
-                    enabled = !state.loading,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Refrescar")
-                }
-            }
-
-            if (state.loading) {
-                LinearProgressIndicator(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp)
-                )
-            }
-
-            state.error?.let {
-                Spacer(Modifier.height(12.dp))
-                AssistChip(
-                    onClick = { /* No hay limpiarMensajes en el ViewModel original */ },
-                    label = { Text("Error: $it") }
-                )
-            }
-            state.info?.let {
-                Spacer(Modifier.height(12.dp))
-                AssistChip(
-                    onClick = { /* No hay limpiarMensajes en el ViewModel original */ },
-                    label = { Text(it) }
-                )
-            }
-
-            Spacer(Modifier.height(24.dp))
-            Text("Listado de Estudiantes", style = MaterialTheme.typography.titleMedium)
-
-            // Contador de estudiantes
-            Text(
-                text = if (state.lista.isEmpty()) "No hay estudiantes registrados"
-                else "${state.lista.size} estudiantes encontrados",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            // Contenedor para la lista de estudiantes
+            Card(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                items(state.lista, key = { it.id }) { est ->
-                    ElevatedCard(Modifier.fillMaxWidth()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    items(state.lista) { est ->
                         Row(
-                            Modifier
+                            modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text("${est.nombre}", style = MaterialTheme.typography.titleMedium)
-                                Spacer(Modifier.height(4.dp))
-                                Text("Edad: ${est.edad}", style = MaterialTheme.typography.bodyMedium)
-                                Text("ID: ${est.id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(est.nombre, style = MaterialTheme.typography.titleMedium)
+                                Text("Edad: ${est.edad}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 IconButton(
@@ -178,7 +187,10 @@ fun EstudiantesScreen(vm: EstudiantesViewModel = viewModel()) {
                                     )
                                 }
                                 IconButton(
-                                    onClick = { vm.eliminar(est.id) },
+                                    onClick = {
+                                        vm.seleccionar(est)
+                                        vm.setShowDeleteDialog(true)
+                                    },
                                     enabled = !state.loading
                                 ) {
                                     Icon(
@@ -190,9 +202,80 @@ fun EstudiantesScreen(vm: EstudiantesViewModel = viewModel()) {
                             }
                         }
                     }
+                    item { Spacer(Modifier.height(100.dp)) }
                 }
-                item { Spacer(Modifier.height(100.dp)) }
             }
+        }
+    }
+
+    // Modal de confirmación para eliminar
+    if (state.showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { vm.setShowDeleteDialog(false) },
+            title = { Text(text = "Confirmar eliminación") },
+            text = { Text(text = "¿Estás seguro de que quieres eliminar al estudiante?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val id = state.seleccionadoId
+                        if (id != null) {
+                            vm.eliminar(id)
+                        }
+                        vm.setShowDeleteDialog(false)
+                        vm.limpiarSeleccion()
+                    }
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        vm.setShowDeleteDialog(false)
+                    }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Modal de confirmación para eliminar todos (NUEVO)
+    if (state.showDeleteAllDialog) {
+        AlertDialog(
+            onDismissRequest = { vm.setShowDeleteAllDialog(false) },
+            title = { Text(text = "⚠️ ELIMINAR TODOS") },
+            text = {
+                Text(text = "¿Estás seguro de que quieres eliminar TODOS los estudiantes? Esta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.confirmarEliminacionTodos()
+                        vm.setShowDeleteAllDialog(false)
+                    }
+                ) {
+                    Text("ELIMINAR TODO", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        vm.setShowDeleteAllDialog(false)
+                    }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (state.loading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
         }
     }
 }
