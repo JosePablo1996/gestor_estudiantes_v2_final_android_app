@@ -153,5 +153,5 @@ La aplicación detecta y maneja:
 
 Este proyecto es desarrollado para fines académicos como parte de una practica para la materia de dispositivos moviles.
 
-Desarrollado por José Pablo - 2025
+Desarrollado por José Pablo Miranda Quintanilla - 2025
 Tecnologías: Kotlin, Jetpack Compose, Retrofit, MVVM.
